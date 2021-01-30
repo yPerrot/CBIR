@@ -38,7 +38,7 @@ def distance(v1, v2, d_type='d1'):
   elif d_type == 'square':
     return np.sum((v1 - v2) ** 2)
 
-
+# Average Precision
 def AP(label, results, sort=True):
   ''' infer a query, return it's ap
 
@@ -63,6 +63,30 @@ def AP(label, results, sort=True):
     return 0.
   return np.mean(precision)
 
+def KNN(results, db_class, nb_neighbor=3) :
+  ''' Find class of an image based on KNN algorithme 
+
+    arguments
+      results   : a list of dict, see the dict template
+                    {
+                      'cls': <img class>,
+                      'dis': <dis between img source and class>
+                    }
+      db_class  : a set with all class name 
+  '''
+  res = []
+  for db_cls in db_class :
+    # Get 3 closest neighboor for current class
+    elem_cls = [ elem for elem in results if get_cls(elem['cls']) == get_cls(db_cls)][:nb_neighbor]
+    total = 0
+    for e in elem_cls :
+      total += e['dis']
+    avrg = total / (nb_neighbor*1.0)
+    res.append({'cls':db_cls, 'dis':avrg})
+  # Sort res
+  res.sort(key=lambda x: x['dis'])
+  # Return class with the lower dis
+  return res[0]['cls']
 
 def infer(query, samples=None, db=None, sample_db_fn=None, depth=None, d_type='d1'):
   ''' infer a query, return it's ap
@@ -150,3 +174,14 @@ def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
     ret[query['cls']].append(ap)
 
   return ret
+
+def get_cls(cls) :
+  '''get real class name from extended name
+
+    arguments
+      cls: class name
+
+    exemple
+      Get "databse\dev\obj_bus" and return "obj_bus"
+  '''
+  return cls.split('\\')[-1]

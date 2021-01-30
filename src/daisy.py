@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 
-from evaluate import evaluate_class
+from evaluate import evaluate_class, infer, KNN, get_cls
 from DB import Database
 
 from skimage.feature import daisy
@@ -15,11 +15,12 @@ import math
 
 import os
 
+import imageio
 
 n_slice    = 2
 n_orient   = 8
 step       = 10
-radius     = 30
+radius     = 15
 rings      = 2
 histograms = 6
 h_type     = 'region'
@@ -79,7 +80,7 @@ class Daisy(object):
     if isinstance(input, np.ndarray):  # examinate input type
       img = input.copy()
     else:
-      img = scipy.misc.imread(input, mode='RGB')
+      img = imageio.imread(input)
     height, width, channel = img.shape
   
     P = math.ceil((height - radius*2) / step) 
@@ -106,7 +107,7 @@ class Daisy(object):
   
   
   def _daisy(self, img, normalize=True):
-    image = color.rgb2gray(img)
+    image = (255.*color.rgb2gray(img)).astype(int)
     descs = daisy(image, step=step, radius=radius, rings=rings, histograms=histograms, orientations=n_orient)
     descs = descs.reshape(-1, R)  # shape=(N, R)
     hist  = np.mean(descs, axis=0)  # shape=(R,)
@@ -123,39 +124,47 @@ class Daisy(object):
     elif h_type == 'region':
       sample_cache = "daisy-{}-n_slice{}-n_orient{}-step{}-radius{}-rings{}-histograms{}".format(h_type, n_slice, n_orient, step, radius, rings, histograms)
   
-    try:
-      samples = cPickle.load(open(os.path.join(cache_dir, sample_cache), "rb", True))
-      for sample in samples:
-        sample['hist'] /= np.sum(sample['hist'])  # normalize
-      if verbose:
-        print("Using cache..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
-    except:
-      if verbose:
-        print("Counting histogram..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
-  
-      samples = []
-      data = db.get_data()
-      for d in data.itertuples():
-        d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
-        d_hist = self.histogram(d_img, type=h_type, n_slice=n_slice)
-        samples.append({
-                        'img':  d_img, 
-                        'cls':  d_cls, 
-                        'hist': d_hist
-                      })
-      cPickle.dump(samples, open(os.path.join(cache_dir, sample_cache), "wb", True))
+    # try:
+    #   samples = cPickle.load(open(os.path.join(cache_dir, sample_cache), "rb", True))
+    #   for sample in samples:
+    #     sample['hist'] /= np.sum(sample['hist'])  # normalize
+    #   if verbose:
+    #     print("Using cache..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+    # except:
+    if verbose:
+      print("Counting histogram..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+
+    samples = []
+    data = db.get_data()
+    for d in data.itertuples():
+      d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
+      d_hist = self.histogram(d_img, type=h_type, n_slice=n_slice)
+      samples.append({
+                      'img':  d_img, 
+                      'cls':  d_cls, 
+                      'hist': d_hist
+                    })
+    cPickle.dump(samples, open(os.path.join(cache_dir, sample_cache), "wb", True))
   
     return samples
 
 
 if __name__ == "__main__":
-  db = Database()
+  d = Daisy()
 
-  # evaluate database
-  APs = evaluate_class(db, f_class=Daisy, d_type=d_type, depth=depth)
-  cls_MAPs = []
-  for cls, cls_APs in APs.items():
-    MAP = np.mean(cls_APs)
-    print("Class {}, MAP {}".format(cls, MAP))
-    cls_MAPs.append(MAP)
-  print("MMAP", np.mean(cls_MAPs))
+  # Create my samples
+  db = Database("database\\train")
+  samples = d.make_samples(db)
+
+  test = Database("database\dev")
+  sample_test = d.make_samples(test)
+
+  # Find class for each image of my test DB and verify the result
+  nb_good_classification = 0
+  for img_test in sample_test:
+    _, resultes = infer(img_test, samples)
+    real_cls = KNN(resultes, db.get_class())
+
+    nb_good_classification += get_cls(img_test['cls']) == get_cls(real_cls)
+
+  print("\n{}/{}".format(nb_good_classification, len(sample_test)))

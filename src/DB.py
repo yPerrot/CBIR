@@ -5,23 +5,23 @@ from __future__ import print_function
 import pandas as pd
 import os
 
-DB_dir = 'database'
-DB_csv = 'data.csv'
-
-
 class Database(object):
 
-  def __init__(self):
+  def __init__(self, path):
+    print(path)
+    self.DB_dir = path
+    self.DB_csv = path + ".csv"
+
     self._gen_csv()
-    self.data = pd.read_csv(DB_csv)
+    self.data = pd.read_csv(self.DB_csv)
     self.classes = set(self.data["cls"])
 
   def _gen_csv(self):
-    if os.path.exists(DB_csv):
+    if os.path.exists(self.DB_csv):
       return
-    with open(DB_csv, 'w', encoding='UTF-8') as f:
+    with open(self.DB_csv, 'w', encoding='UTF-8') as f:
       f.write("img,cls")
-      for root, _, files in os.walk(DB_dir, topdown=False):
+      for root, _, files in os.walk(self.DB_dir, topdown=False):
         cls = root.split('/')[-1]
         for name in files:
           if not name.endswith('.jpg'):
