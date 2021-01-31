@@ -40,9 +40,10 @@ class Database(object):
 
 
 if __name__ == "__main__":
-  db = Database()
+  db = Database("./database")
   data = db.get_data()
   classes = db.get_class()
 
   print("DB length:", len(db))
   print(classes)
+  print(type(data))
