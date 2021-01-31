@@ -8,7 +8,6 @@ import os
 class Database(object):
 
   def __init__(self, path):
-    print(path)
     self.DB_dir = path
     self.DB_csv = path + ".csv"
 
@@ -40,7 +39,7 @@ class Database(object):
 
 
 if __name__ == "__main__":
-  db = Database("./database")
+  db = Database("./database/train")
   data = db.get_data()
   classes = db.get_class()
 

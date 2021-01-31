@@ -118,33 +118,33 @@ class Daisy(object):
     return hist
   
   
-  def make_samples(self, db, verbose=True):
+  def make_samples(self, db, sample_name="", verbose=True):
     if h_type == 'global':
-      sample_cache = "daisy-{}-n_orient{}-step{}-radius{}-rings{}-histograms{}".format(h_type, n_orient, step, radius, rings, histograms)
+      sample_cache = "daisy-{}-n_orient{}-step{}-radius{}-rings{}-histograms{}-name{}".format(h_type, n_orient, step, radius, rings, histograms, sample_name)
     elif h_type == 'region':
-      sample_cache = "daisy-{}-n_slice{}-n_orient{}-step{}-radius{}-rings{}-histograms{}".format(h_type, n_slice, n_orient, step, radius, rings, histograms)
+      sample_cache = "daisy-{}-n_slice{}-n_orient{}-step{}-radius{}-rings{}-histograms{}-name{}".format(h_type, n_slice, n_orient, step, radius, rings, histograms, sample_name)
   
-    # try:
-    #   samples = cPickle.load(open(os.path.join(cache_dir, sample_cache), "rb", True))
-    #   for sample in samples:
-    #     sample['hist'] /= np.sum(sample['hist'])  # normalize
-    #   if verbose:
-    #     print("Using cache..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
-    # except:
-    if verbose:
-      print("Counting histogram..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+    try:
+      samples = cPickle.load(open(os.path.join(cache_dir, sample_cache), "rb"))
+      for sample in samples:
+        sample['hist'] /= np.sum(sample['hist'])  # normalize
+      if verbose:
+        print("Using cache..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+    except:
+      if verbose:
+        print("Counting histogram..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
 
-    samples = []
-    data = db.get_data()
-    for d in data.itertuples():
-      d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
-      d_hist = self.histogram(d_img, type=h_type, n_slice=n_slice)
-      samples.append({
-                      'img':  d_img, 
-                      'cls':  d_cls, 
-                      'hist': d_hist
-                    })
-    cPickle.dump(samples, open(os.path.join(cache_dir, sample_cache), "wb", True))
+      samples = []
+      data = db.get_data()
+      for d in data.itertuples():
+        d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
+        d_hist = self.histogram(d_img, type=h_type, n_slice=n_slice)
+        samples.append({
+                        'img':  d_img, 
+                        'cls':  d_cls, 
+                        'hist': d_hist
+                      })
+      cPickle.dump(samples, open(os.path.join(cache_dir, sample_cache), "wb"))
   
     return samples
 
@@ -154,10 +154,14 @@ if __name__ == "__main__":
 
   # Create my samples
   db = Database("database\\train")
-  samples = d.make_samples(db)
+  print("Train databse created.")
+  samples = d.make_samples(db, sample_name="train")
+  print("Train samples created.")
 
   test = Database("database\dev")
-  sample_test = d.make_samples(test)
+  print("Test databse created.")
+  sample_test = d.make_samples(test, sample_name="dev")
+  print("Test samples created.")
 
   # Find class for each image of my test DB and verify the result
   nb_good_classification = 0
